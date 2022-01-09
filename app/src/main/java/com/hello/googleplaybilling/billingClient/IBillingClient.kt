@@ -7,7 +7,7 @@ import androidx.lifecycle.MutableLiveData
 /**
  * Created by Brant on 2022/1/6.
  */
-interface IBillingClient<S,P> {
+interface IBillingClient<S> :IBillingClientLifecycle{
 
     /**
      * 查詢可供購買的商品
@@ -27,6 +27,7 @@ interface IBillingClient<S,P> {
      */
     fun buy(activity: Activity,skuDetails: S)
 
+    fun isClientReady() :Boolean
 
-    fun getSkuDetailsLiveData() : LiveData<List<S>?>
+
 }

@@ -12,7 +12,7 @@ import com.hello.googleplaybilling.databinding.ItemSkuDetailBinding
 /**
  * Created by Brant on 2022/1/6.
  */
-class SkuAdapter(val clickListener :ISkuDetailItemClickListener) : RecyclerView.Adapter<SkuAdapter.Companion.SkuViewHolder>() {
+class SkuAdapter(private val clickListener :ISkuDetailItemClickListener) : RecyclerView.Adapter<SkuAdapter.Companion.SkuViewHolder>() {
 
     companion object{
         class SkuViewHolder(private val binding: ItemSkuDetailBinding) : RecyclerView.ViewHolder(binding.root){
@@ -44,14 +44,12 @@ class SkuAdapter(val clickListener :ISkuDetailItemClickListener) : RecyclerView.
 
     override fun getItemCount() = if (mData == null) 0 else mData!!.size
 
-    @SuppressLint("NotifyDataSetChanged")
     fun clearSku(){
-        mData = null
-        notifyDataSetChanged()
+        addSku(null)
     }
 
     @SuppressLint("NotifyDataSetChanged")
-    fun addSku(skuDetailsList: MutableList<SkuDetailItem>){
+    fun addSku(skuDetailsList: MutableList<SkuDetailItem>?){
         mData = skuDetailsList
         notifyDataSetChanged()
     }

@@ -2,6 +2,7 @@ package com.hello.googleplaybilling
 
 import android.app.Activity
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.*
 import com.hello.googleplaybilling.billingClient.GooglePlayBillingClient
 import com.hello.googleplaybilling.data.SkuDetailItem
@@ -17,7 +18,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),IS
     /**
      * adapter的資料來源 skuDetails轉成SkuDetailItem
      */
-    val mSkuDetailsListLiveData = MediatorLiveData<MutableList<SkuDetailItem>>().apply {
+    val mSkuDetailsListLiveData = MediatorLiveData<MutableList<SkuDetailItem>?>().apply {
         addSource(mBillingClient.getSkuDetailsLiveData()){ list ->
             value = list?.map {
                 SkuDetailItem(it)

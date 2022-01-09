@@ -9,7 +9,7 @@ import com.android.billingclient.api.*
  * Created by Brant on 2022/1/6.
  */
 class GooglePlayBillingClient private constructor(private val app :Application) :
-    BaseBillingClient<SkuDetails,Purchase>(app),
+    CustomBillingClient<SkuDetails,Purchase>(),
     PurchasesUpdatedListener, BillingClientStateListener,SkuDetailsResponseListener,PurchasesResponseListener{
 
     companion object{
@@ -25,21 +25,22 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
         }
     }
 
-    private lateinit var mBillingClient :BillingClient
-
-    override fun startClientConnection() {
-        mBillingClient = BillingClient.newBuilder(app.applicationContext)
+    private val mBillingClient :BillingClient by lazy {
+        BillingClient.newBuilder(app.applicationContext)
             .setListener(this)
             .enablePendingPurchases()
             .build()
-        if (!mBillingClient.isReady) {
+    }
+
+    override fun startClientConnection() {
+        if (!isClientReady()) {
             Log.d(TAG, "BillingClient 開始連線")
             mBillingClient.startConnection(this)
         }
     }
 
     override fun endClientConnection() {
-        if (mBillingClient.isReady){
+        if (isClientReady()){
             Log.d(TAG, "BillingClient 中斷連線")
             mBillingClient.endConnection()
         }
@@ -48,7 +49,6 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
     override fun querySku(skuType :String, skuID :List<String>) {
         if (skuType.isEmpty() || skuID.isEmpty()){
             Log.d(TAG, "查詢可購買商品: skyType or skuID error")
-            return
         }else{
             Log.d(TAG, "查詢可購買商品 skuType :$skuType")
             val param = SkuDetailsParams.newBuilder()
@@ -75,58 +75,58 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
             .build()
         val launchBillingFlow = mBillingClient.launchBillingFlow(activity, param)
         if (launchBillingFlow.responseCode == BillingClient.BillingResponseCode.OK){
-            Log.d(TAG, "開始購買: $skuDetails ")
+            Log.d(TAG, "開始購買流程: $skuDetails ")
         }
     }
 
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: MutableList<Purchase>?) {
-        when (val responseCode = billingResult.responseCode) {
+        logBillingResultMessage(billingResult,"商品更新")
+        when (billingResult.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
-                if (purchases == null) {
-                    Log.d(TAG, "商品更新 :null purchase")
-                    purchaseUpdate(null)
-                } else {
-                    purchases.forEach {
-                        Log.d(TAG, "商品更新 :$it")
-                    }
-                    purchaseUpdate(purchases)
-                }
-            }
-            BillingClient.BillingResponseCode.USER_CANCELED -> {
-                Log.d(TAG, "商品更新 responseCode :$responseCode 用戶取消購買")
-            }
-            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
-                Log.d(TAG, "商品更新 responseCode :$responseCode 用戶已經擁有該商品")
-            }
-            BillingClient.BillingResponseCode.DEVELOPER_ERROR -> {
-                Log.d(TAG, "商品更新 responseCode :$responseCode DEVELOPER_ERROR")
+                purchaseUpdate(purchases)
             }
         }
     }
 
     override fun onSkuDetailsResponse(billingResult: BillingResult, skuDetails: MutableList<SkuDetails>?) {
-        Log.d(TAG, "querySkuDetails responseCode: ${billingResult.responseCode} skuDetailCount: ${skuDetails?.size}")
-        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && skuDetails != null){
-            skuDetails.forEach {
-                Log.d(TAG, "可購買商品: $it")
-            }
+        logBillingResultMessage(billingResult,"onSkuDetailsResponse")
+        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK){
             querySkuSuccess(skuDetails)
         }
     }
 
     override fun onQueryPurchasesResponse(BillingResult: BillingResult, purchase: MutableList<Purchase>) {
-
+        logBillingResultMessage(BillingResult,"onQueryPurchasesResponse")
     }
 
     override fun onBillingSetupFinished(billingResult: BillingResult) {
-        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK){
-            Log.d(TAG, "BillingClient 初始化完成")
-        }else{
-            Log.d(TAG, "BillingClient 初始化失敗")
-        }
+        logBillingResultMessage(billingResult,"初始化")
     }
 
     override fun onBillingServiceDisconnected() {
         Log.d(TAG, "BillingClient 連線中斷")
+        startClientConnection()
+    }
+
+    override fun isClientReady() = mBillingClient.isReady
+
+    private fun logBillingResultMessage(billingResult: BillingResult, actionName :String){
+        val responseCode = billingResult.responseCode
+        val debugMessage = billingResult.debugMessage
+        val message = when (responseCode) {
+            BillingClient.BillingResponseCode.OK -> "成功"
+            BillingClient.BillingResponseCode.SERVICE_DISCONNECTED -> "服務斷線"
+            BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE -> "SERVICE_UNAVAILABLE"
+            BillingClient.BillingResponseCode.BILLING_UNAVAILABLE -> "BILLING_UNAVAILABLE"
+            BillingClient.BillingResponseCode.ITEM_UNAVAILABLE -> "ITEM_UNAVAILABLE"
+            BillingClient.BillingResponseCode.DEVELOPER_ERROR -> "DEVELOPER_ERROR"
+            BillingClient.BillingResponseCode.ERROR -> "ERROR"
+            BillingClient.BillingResponseCode.USER_CANCELED -> "用戶取消"
+            BillingClient.BillingResponseCode.FEATURE_NOT_SUPPORTED -> "FEATURE_NOT_SUPPORTED"
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> "已擁有該商品"
+            BillingClient.BillingResponseCode.ITEM_NOT_OWNED -> "未擁有該商品"
+            else -> "responseCode不明"
+        }
+        Log.i(TAG, "$actionName responseCode: $responseCode /message: $message /debugMessage: $debugMessage")
     }
 }

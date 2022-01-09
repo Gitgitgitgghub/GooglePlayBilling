@@ -2,7 +2,6 @@ package com.hello.googleplaybilling
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -21,7 +20,7 @@ class MainActivity : AppCompatActivity(),View.OnClickListener {
         mBinding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(mBinding.root)
         mViewModel = ViewModelProvider(this).get(MainViewModel::class.java)
-        lifecycle.addObserver(GooglePlayBillingClient.getInstance(application))
+        GooglePlayBillingClient.getInstance(application).connectBillingClientWithLifecycle(lifecycle)
         initView()
         observeSkuDetail()
     }
@@ -37,9 +36,7 @@ class MainActivity : AppCompatActivity(),View.OnClickListener {
 
     private fun observeSkuDetail(){
         mViewModel.mSkuDetailsListLiveData.observe(this){
-            it?.let {
-                mAdapter.addSku(it.toMutableList())
-            }
+            mAdapter.addSku(it)
         }
     }
 
