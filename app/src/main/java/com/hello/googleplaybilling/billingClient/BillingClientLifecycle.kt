@@ -8,7 +8,7 @@ import androidx.lifecycle.*
  * Created by Brant on 2022/1/7.
  * 主要用來定義用生命週期控管client的連線
  */
-abstract class BillingClientLifecycle<S>() : IBillingClient<S>{
+abstract class BillingClientLifecycle() : IBillingClient{
 
     override fun connectBillingClientWithLifecycle(lifecycle: Lifecycle) {
         lifecycle.addObserver(this)

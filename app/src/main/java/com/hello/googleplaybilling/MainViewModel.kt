@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.*
+import com.android.billingclient.api.BillingClient
 import com.hello.googleplaybilling.billingClient.GooglePlayBillingClient
 import com.hello.googleplaybilling.data.SkuDetailItem
 
@@ -14,6 +15,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),IS
 
 
     private val mBillingClient = GooglePlayBillingClient.getInstance(application)
+    private var mSkyType = BillingClient.SkuType.SUBS
 
     /**
      * adapter的資料來源 skuDetails轉成SkuDetailItem
@@ -27,8 +29,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application),IS
     }
 
 
-    fun querySku(skyType :String){
-        mBillingClient.querySku(skyType, listOf(SUB_WEEK, SUB_Month))
+    fun query(){
+        querySku()
+        queryPurchase()
+    }
+
+    fun querySku(){
+        mBillingClient.querySku(mSkyType, listOf(SUB_WEEK, SUB_Month))
+    }
+
+    fun queryPurchase(){
+        mBillingClient.queryPurchase(mSkyType)
     }
 
     override fun onSkuDetailItemClick(position: Int) {
@@ -49,7 +60,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),IS
             list.find {
                 it.isSelect
             }?.data?.let {
-                mBillingClient.buy(activity,it)
+                mBillingClient.buy(activity,it.sku)
             }
         }
     }

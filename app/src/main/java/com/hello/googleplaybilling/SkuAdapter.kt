@@ -2,26 +2,24 @@ package com.hello.googleplaybilling
 
 import android.annotation.SuppressLint
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.android.billingclient.api.SkuDetails
 import com.hello.googleplaybilling.data.SkuDetailItem
 import com.hello.googleplaybilling.databinding.ItemSkuDetailBinding
 
 /**
  * Created by Brant on 2022/1/6.
  */
-class SkuAdapter(private val clickListener :ISkuDetailItemClickListener) : RecyclerView.Adapter<SkuAdapter.Companion.SkuViewHolder>() {
+class SkuAdapter(private val clickListener :ISkuDetailItemClickListener) : RecyclerView.Adapter<SkuAdapter.Companion.SubSkuViewHolder>() {
 
     companion object{
-        class SkuViewHolder(private val binding: ItemSkuDetailBinding) : RecyclerView.ViewHolder(binding.root){
+        class SubSkuViewHolder(private val binding: ItemSkuDetailBinding) : RecyclerView.ViewHolder(binding.root){
 
             fun bindSku(skuDetailItem: SkuDetailItem ,clickListener :ISkuDetailItemClickListener){
                 val skuDetails = skuDetailItem.data
                 binding.tvProductID.text = skuDetails.sku
                 binding.tvProductType.text = skuDetails.type
-                binding.tvProductTitle.text = skuDetails.title
+                binding.tvProductTitle.text = skuDetails.title.substringBefore("(")
                 binding.tvProductPrice.text = skuDetails.price
                 binding.rbSelect.isChecked = skuDetailItem.isSelect
                 binding.root.setOnClickListener {
@@ -33,11 +31,11 @@ class SkuAdapter(private val clickListener :ISkuDetailItemClickListener) : Recyc
 
     private var mData :MutableList<SkuDetailItem>? = null
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SkuViewHolder {
-        return SkuViewHolder(ItemSkuDetailBinding.inflate(LayoutInflater.from(parent.context),parent,false))
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SubSkuViewHolder {
+        return SubSkuViewHolder(ItemSkuDetailBinding.inflate(LayoutInflater.from(parent.context),parent,false))
     }
 
-    override fun onBindViewHolder(holder: SkuViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: SubSkuViewHolder, position: Int) {
         mData ?:return
         holder.bindSku(mData!![position],clickListener)
     }

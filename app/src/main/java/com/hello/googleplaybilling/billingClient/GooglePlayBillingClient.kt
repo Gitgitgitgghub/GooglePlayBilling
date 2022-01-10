@@ -69,13 +69,18 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
         }
     }
 
-    override fun buy(activity: Activity, skuDetails: SkuDetails) {
-        val param = BillingFlowParams.newBuilder()
-            .setSkuDetails(skuDetails)
-            .build()
-        val launchBillingFlow = mBillingClient.launchBillingFlow(activity, param)
-        if (launchBillingFlow.responseCode == BillingClient.BillingResponseCode.OK){
-            Log.d(TAG, "開始購買流程: $skuDetails ")
+    override fun buy(activity: Activity, skuID :String) {
+        val skuDetails = getSkuByID(skuID)
+        if (skuDetails != null){
+            val param = BillingFlowParams.newBuilder()
+                .setSkuDetails(skuDetails)
+                .build()
+            val launchBillingFlow = mBillingClient.launchBillingFlow(activity, param)
+            if (launchBillingFlow.responseCode == BillingClient.BillingResponseCode.OK){
+                Log.d(TAG, "開始購買流程: $skuDetails ")
+            }
+        }else{
+            Log.d(TAG, "開始購買流程: skuDetails is null")
         }
     }
 
@@ -83,7 +88,12 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
         logBillingResultMessage(billingResult,"商品更新")
         when (billingResult.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
-                purchaseUpdate(purchases)
+                val purchasesMap = mutableMapOf<String,Purchase>()
+                purchases?.forEach {
+                    purchasesMap[it.skus.first()] = it
+                    acknowledgePurchase(it)
+                }
+                purchaseUpdate(purchasesMap)
             }
         }
     }
@@ -91,12 +101,37 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
     override fun onSkuDetailsResponse(billingResult: BillingResult, skuDetails: MutableList<SkuDetails>?) {
         logBillingResultMessage(billingResult,"onSkuDetailsResponse")
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK){
-            querySkuSuccess(skuDetails)
+            val skuMap = mutableMapOf<String,SkuDetails>()
+            skuDetails?.forEach {
+                skuMap[it.sku] = it
+            }
+            querySkuSuccess(skuMap)
         }
     }
 
-    override fun onQueryPurchasesResponse(BillingResult: BillingResult, purchase: MutableList<Purchase>) {
-        logBillingResultMessage(BillingResult,"onQueryPurchasesResponse")
+    override fun onQueryPurchasesResponse(billingResult: BillingResult, purchase: MutableList<Purchase>) {
+        logBillingResultMessage(billingResult,"onQueryPurchasesResponse")
+        when (billingResult.responseCode) {
+            BillingClient.BillingResponseCode.OK -> {
+                val purchasesMap = mutableMapOf<String,Purchase>()
+                purchase.forEach {
+                    purchasesMap[it.skus.first()] = it
+                    acknowledgePurchase(it)
+                }
+                purchaseUpdate(purchasesMap)
+            }
+        }
+    }
+
+    private fun acknowledgePurchase(purchase :Purchase){
+        if (!purchase.isAcknowledged){
+            val params = AcknowledgePurchaseParams.newBuilder()
+                .setPurchaseToken(purchase.purchaseToken)
+                .build()
+            mBillingClient.acknowledgePurchase(params) { billingResult ->
+                logBillingResultMessage(billingResult,"驗證訂單")
+            }
+        }
     }
 
     override fun onBillingSetupFinished(billingResult: BillingResult) {

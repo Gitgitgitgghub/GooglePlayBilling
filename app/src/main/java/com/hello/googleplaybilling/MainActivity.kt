@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.view.View
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.android.billingclient.api.BillingClient
 import com.hello.googleplaybilling.billingClient.GooglePlayBillingClient
 import com.hello.googleplaybilling.databinding.ActivityMainBinding
 
@@ -42,7 +41,7 @@ class MainActivity : AppCompatActivity(),View.OnClickListener {
 
     override fun onClick(v: View) {
         when(v){
-            mBinding.btnQuery -> mViewModel.querySku(BillingClient.SkuType.SUBS)
+            mBinding.btnQuery -> mViewModel.query()
             mBinding.btnBuy -> mViewModel.go2Buy(this)
         }
     }
