@@ -9,23 +9,22 @@ import androidx.lifecycle.MutableLiveData
  */
 interface IBillingClient :IBillingClientLifecycle{
 
+    fun setSkuType(skuType :String)
     /**
      * 查詢可供購買的商品
-     * skuType = BillingClient.SkuType
      * skuID 對應googlePlay的產品id
      */
-    fun querySku(skuType :String,skuID :List<String>)
+    fun querySku()
 
     /**
      * 查詢購買的商品
-     * skuType = BillingClient.SkuType
      */
-    fun queryPurchase(skuType :String)
+    fun queryPurchase()
 
     /**
      * 購買商品
      */
-    fun buy(activity: Activity,skuID :String)
+    fun buy(activity: Activity,skuID :String) :Int
 
     fun isClientReady() :Boolean
 

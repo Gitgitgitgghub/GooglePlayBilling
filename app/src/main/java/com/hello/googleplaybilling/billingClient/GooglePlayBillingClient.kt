@@ -3,13 +3,22 @@ package com.hello.googleplaybilling.billingClient
 import android.app.Activity
 import android.app.Application
 import android.util.Log
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.MutableLiveData
 import com.android.billingclient.api.*
+import com.hello.googleplaybilling.data.InAppProduct
+import com.hello.googleplaybilling.data.SubProduct
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.lang.NullPointerException
 
 /**
  * Created by Brant on 2022/1/6.
  */
 class GooglePlayBillingClient private constructor(private val app :Application) :
-    CustomBillingClient<SkuDetails,Purchase>(),
+    BillingClientLifecycle(),
     PurchasesUpdatedListener, BillingClientStateListener,SkuDetailsResponseListener,PurchasesResponseListener{
 
     companion object{
@@ -32,6 +41,11 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
             .build()
     }
 
+    private var mSkuType = BillingClient.SkuType.SUBS
+    private val mSkuDetailsListLiveData = MutableLiveData<List<SkuDetails>?>()
+    private val mPurchaseListLiveData = MutableLiveData<List<Purchase>?>()
+
+
     override fun startClientConnection() {
         if (!isClientReady()) {
             Log.d(TAG, "BillingClient 開始連線")
@@ -46,66 +60,68 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
         }
     }
 
-    override fun querySku(skuType :String, skuID :List<String>) {
-        if (skuType.isEmpty() || skuID.isEmpty()){
-            Log.d(TAG, "查詢可購買商品: skyType or skuID error")
-        }else{
-            Log.d(TAG, "查詢可購買商品 skuType :$skuType")
-            val param = SkuDetailsParams.newBuilder()
-                .setSkusList(skuID)
-                .setType(skuType)
-                .build()
-            mBillingClient.querySkuDetailsAsync(param,this)
+    override fun setSkuType(skuType :String) {
+        mSkuType = skuType
+    }
+
+    override fun querySku() {
+        if (!isClientReady()) return
+        Log.d(TAG, "查詢可購買商品 skuType :$mSkuType")
+        val skuIDList = getSkuIDList() ?: return
+        val param = SkuDetailsParams.newBuilder()
+            .setSkusList(skuIDList)
+            .setType(mSkuType)
+            .build()
+        launch(Dispatchers.IO){
+            mBillingClient.querySkuDetailsAsync(param,this@GooglePlayBillingClient)
         }
     }
 
-    override fun queryPurchase(skuType: String) {
-        if (skuType.isEmpty()){
+    override fun queryPurchase() {
+        if (!isClientReady()) return
+        if (mSkuType.isEmpty()){
             Log.d(TAG, "查詢商品: skyType error")
             return
         }else{
-            Log.d(TAG, "查詢商品 skuType :$skuType")
-            mBillingClient.queryPurchasesAsync(skuType,this)
+            launch(Dispatchers.IO){
+                Log.d(TAG, "查詢商品 skuType :$mSkuType")
+                mBillingClient.queryPurchasesAsync(mSkuType,this@GooglePlayBillingClient)
+            }
         }
     }
 
-    override fun buy(activity: Activity, skuID :String) {
+    override fun buy(activity: Activity, skuID :String) :Int {
         val skuDetails = getSkuByID(skuID)
         if (skuDetails != null){
             val param = BillingFlowParams.newBuilder()
                 .setSkuDetails(skuDetails)
                 .build()
-            val launchBillingFlow = mBillingClient.launchBillingFlow(activity, param)
-            if (launchBillingFlow.responseCode == BillingClient.BillingResponseCode.OK){
+            val responseCode = mBillingClient.launchBillingFlow(activity, param).responseCode
+            if (responseCode == BillingClient.BillingResponseCode.OK){
                 Log.d(TAG, "開始購買流程: $skuDetails ")
             }
-        }else{
-            Log.d(TAG, "開始購買流程: skuDetails is null")
+            return responseCode
         }
+        throw NullPointerException("開始購買流程: skuDetails is null")
     }
 
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: MutableList<Purchase>?) {
-        logBillingResultMessage(billingResult,"商品更新")
+        logBillingResultMessage(billingResult,"商品更新: 數量${purchases?.size}")
         when (billingResult.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
-                val purchasesMap = mutableMapOf<String,Purchase>()
-                purchases?.forEach {
-                    purchasesMap[it.skus.first()] = it
-                    acknowledgePurchase(it)
-                }
-                purchaseUpdate(purchasesMap)
+                updatePurchases(purchases)
+                handlePurchase(purchases)
             }
         }
     }
 
     override fun onSkuDetailsResponse(billingResult: BillingResult, skuDetails: MutableList<SkuDetails>?) {
-        logBillingResultMessage(billingResult,"onSkuDetailsResponse")
+        logBillingResultMessage(billingResult,"可購買商品數量 :${skuDetails?.size}")
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK){
-            val skuMap = mutableMapOf<String,SkuDetails>()
+            mSkuDetailsListLiveData.postValue(skuDetails)
             skuDetails?.forEach {
-                skuMap[it.sku] = it
+                Log.d(TAG, "可購買商品 :$it")
             }
-            querySkuSuccess(skuMap)
         }
     }
 
@@ -113,13 +129,37 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
         logBillingResultMessage(billingResult,"onQueryPurchasesResponse")
         when (billingResult.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
-                val purchasesMap = mutableMapOf<String,Purchase>()
-                purchase.forEach {
-                    purchasesMap[it.skus.first()] = it
-                    acknowledgePurchase(it)
-                }
-                purchaseUpdate(purchasesMap)
+                updatePurchases(purchase)
+                handlePurchase(purchase)
             }
+        }
+    }
+
+    /**
+     * 重要
+     * 收到訂單更新後
+     * 1.消耗型商品要執行consumeAsync，否則無法再次購買
+     * 2.非消耗型(訂閱也算非消耗)要執行acknowledgePurchase
+     */
+    private fun handlePurchase(purchaseList :MutableList<Purchase>?){
+        purchaseList?.forEach { purchase ->
+            if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED){
+                val type = getSkuByID(purchase.skus.first())?.type ?:return
+                when (type){
+                    BillingClient.SkuType.INAPP -> consumePurchase(purchase)
+                    BillingClient.SkuType.SUBS -> acknowledgePurchase(purchase)
+                }
+            }
+        }
+    }
+
+    private fun consumePurchase(purchase :Purchase){
+        val consumeParams =
+            ConsumeParams.newBuilder()
+                .setPurchaseToken(purchase.purchaseToken)
+                .build()
+        mBillingClient.consumeAsync(consumeParams) { billingResult, token ->
+            logBillingResultMessage(billingResult, "消耗商品 token:${token}")
         }
     }
 
@@ -129,18 +169,26 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
                 .setPurchaseToken(purchase.purchaseToken)
                 .build()
             mBillingClient.acknowledgePurchase(params) { billingResult ->
-                logBillingResultMessage(billingResult,"驗證訂單")
+                logBillingResultMessage(billingResult,"確認訂單 :${purchase.skus.first()}")
             }
         }
     }
 
     override fun onBillingSetupFinished(billingResult: BillingResult) {
-        logBillingResultMessage(billingResult,"初始化")
+        logBillingResultMessage(billingResult,"初始化完成")
+        querySku()
+        queryPurchase()
     }
 
     override fun onBillingServiceDisconnected() {
         Log.d(TAG, "BillingClient 連線中斷")
         startClientConnection()
+    }
+
+    private fun getSkuIDList() = when(mSkuType) {
+        BillingClient.SkuType.INAPP -> InAppProduct.skuIDList
+        BillingClient.SkuType.SUBS -> SubProduct.skuIDList
+        else -> null
     }
 
     override fun isClientReady() = mBillingClient.isReady
@@ -163,5 +211,28 @@ class GooglePlayBillingClient private constructor(private val app :Application) 
             else -> "responseCode不明"
         }
         Log.i(TAG, "$actionName responseCode: $responseCode /message: $message /debugMessage: $debugMessage")
+    }
+
+
+    fun getSkuDetailsLiveData(): LiveData<List<SkuDetails>?> {
+        return mSkuDetailsListLiveData
+    }
+
+    fun getPurchaseLiveData() :LiveData<List<Purchase>?> {
+        return mPurchaseListLiveData
+    }
+
+    fun updatePurchases(purchase: MutableList<Purchase>?){
+        mPurchaseListLiveData.postValue(purchase)
+        purchase?.forEach {
+            Log.d(TAG, "商品更新 ${it.skus.first()} : $it")
+        }
+    }
+
+    fun getSkuByID(skuID :String) :SkuDetails?{
+        mSkuDetailsListLiveData.value?.forEach {
+            if (it.sku == skuID) return it
+        }
+        return null
     }
 }

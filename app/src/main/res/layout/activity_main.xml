@@ -6,30 +6,48 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <TextView
+        android:id="@+id/tvSkuType"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:gravity="center"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/rvSkuDetail"/>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvSkuDetail"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvSkuType"
         app:layout_constraintBottom_toTopOf="@+id/flowBtn"/>
 
     <androidx.constraintlayout.helper.widget.Flow
         android:id="@+id/flowBtn"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="wrap_content"
+        android:padding="5dp"
+        app:flow_wrapMode="chain"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:constraint_referenced_ids="btnQuery,btnBuy"/>
+        app:constraint_referenced_ids="btnSwitchSkuType,btnQuery,btnBuy"/>
+
+    <Button
+        android:id="@+id/btnSwitchSkuType"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="切換類型"/>
 
     <Button
         android:id="@+id/btnQuery"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="查詢訂閱"/>
+        android:text="查詢"/>
 
     <Button
         android:id="@+id/btnBuy"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="購買"/>
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

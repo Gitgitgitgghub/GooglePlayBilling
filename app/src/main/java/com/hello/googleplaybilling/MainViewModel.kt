@@ -2,7 +2,7 @@ package com.hello.googleplaybilling
 
 import android.app.Activity
 import android.app.Application
-import android.util.Log
+import android.net.Uri
 import androidx.lifecycle.*
 import com.android.billingclient.api.BillingClient
 import com.hello.googleplaybilling.billingClient.GooglePlayBillingClient
@@ -15,7 +15,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),IS
 
 
     private val mBillingClient = GooglePlayBillingClient.getInstance(application)
-    private var mSkyType = BillingClient.SkuType.SUBS
+
 
     /**
      * adapter的資料來源 skuDetails轉成SkuDetailItem
@@ -26,6 +26,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application),IS
                 SkuDetailItem(it)
             }?.toMutableList()
         }
+        addSource(mBillingClient.getPurchaseLiveData()){ list ->
+            value?.forEach { item ->
+                item.purchase = null
+                list?.forEach {
+                    if (it.skus.first() == item.skuDetail.sku){
+                        item.purchase = it
+                    }
+                }
+                value = value
+            }
+        }
+    }
+
+    val mOpenGooglePlayStoreSubscriptionUriLiveData = SingleLiveEvent<Uri>()
+
+    val mSkuTypeLiveData = MutableLiveData(BillingClient.SkuType.SUBS)
+
+    fun setSkuType(skuType :String){
+        mSkuTypeLiveData.value = skuType
+        mBillingClient.setSkuType(skuType)
+        query()
     }
 
 
@@ -35,11 +56,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application),IS
     }
 
     fun querySku(){
-        mBillingClient.querySku(mSkyType, listOf(SUB_WEEK, SUB_Month))
+        mBillingClient.querySku()
     }
 
     fun queryPurchase(){
-        mBillingClient.queryPurchase(mSkyType)
+        mBillingClient.queryPurchase()
     }
 
     override fun onSkuDetailItemClick(position: Int) {
@@ -59,8 +80,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application),IS
         mSkuDetailsListLiveData.value?.let { list ->
             list.find {
                 it.isSelect
-            }?.data?.let {
-                mBillingClient.buy(activity,it.sku)
+            }?.let {
+                if (it.needOpenGooglePlaySubscriptionPage()){
+                    it.getGooglePlaySubscriptionPageUri()?.let { uri ->
+                        mOpenGooglePlayStoreSubscriptionUriLiveData.value = uri
+                    }
+                }else{
+                    mBillingClient.buy(activity,it.skuDetail.sku)
+                }
             }
         }
     }

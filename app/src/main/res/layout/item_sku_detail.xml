@@ -17,27 +17,25 @@
             android:layout_height="match_parent"
             app:layout_constraintStart_toStartOf="parent"
             android:orientation="vertical"
-            app:constraint_referenced_ids="tvProductID,tvProductType"/>
+            app:constraint_referenced_ids="tvProductID,tvAutoRenewind"/>
 
         <TextView
             android:id="@+id/tvProductID"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="5dp"
-            android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@color/black"
             tools:text="sub.month" />
 
         <TextView
-            android:id="@+id/tvProductType"
+            android:id="@+id/tvAutoRenewind"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="5dp"
-            android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@color/black"
-            tools:text="subs"/>
+            tools:text="續訂:"/>
 
         <TextView
             android:id="@+id/tvProductTitle"
